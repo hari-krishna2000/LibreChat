@@ -98,6 +98,7 @@ function processUserPlaceholders(value: string, user?: TUser): string {
  * Replaces request body field placeholders within a string.
  * Recognized placeholders: `{{LIBRECHAT_BODY_<FIELD>}}` where `<FIELD>` ∈ ALLOWED_BODY_FIELDS.
  * If a body field is absent or null/undefined, it is replaced with an empty string.
+ * For array fields (like fileUrls), the value is JSON-stringified.
  *
  * @param value - The string value to process
  * @param body - The request body object
@@ -111,7 +112,17 @@ function processBodyPlaceholders(value: string, body: RequestBody): string {
     }
 
     const fieldValue = body[field];
-    const replacementValue = fieldValue == null ? '' : String(fieldValue);
+    let replacementValue: string;
+
+    if (fieldValue == null) {
+      replacementValue = '';
+    } else if (Array.isArray(fieldValue)) {
+      // For arrays (like fileUrls), stringify as JSON
+      replacementValue = JSON.stringify(fieldValue);
+    } else {
+      replacementValue = String(fieldValue);
+    }
+
     value = value.replace(new RegExp(placeholder, 'g'), replacementValue);
   }
 
