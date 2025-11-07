@@ -13,6 +13,7 @@ import { ConnectionsRepository } from '~/mcp/ConnectionsRepository';
 import { formatToolContent } from './parsers';
 import { MCPConnection } from './connection';
 import { processMCPEnv } from '~/utils/env';
+import { generateFileUrls } from '~/files/fileUrls';
 
 /**
  * Centralized manager for MCP server connections and tool execution.
@@ -224,12 +225,42 @@ Please follow these instructions when using tools from the respective MCP server
         );
       }
 
+      // Generate temporary file URLs if files are attached
+      let enhancedRequestBody = requestBody;
+      if (requestBody?.files && Array.isArray(requestBody.files) && requestBody.files.length > 0 && userId) {
+        try {
+          const fileStrategy = process.env.FILE_STRATEGY || 'local';
+          const storage = fileStrategy === 's3' ? 's3' : 'local';
+
+          const fileUrlsMetadata = await generateFileUrls(
+            requestBody.files.map((f: any) => ({ fileId: f.file_id || f.filename || f.name })),
+            storage as 'local' | 's3',
+            userId
+          );
+
+          const fileUrls = fileUrlsMetadata.map(metadata => metadata.url);
+
+          enhancedRequestBody = {
+            ...requestBody,
+            fileUrls,
+          };
+
+          logger.info(`${logPrefix} Generated ${fileUrls.length} temporary file URLs`, {
+            storage,
+            toolName,
+            fileCount: fileUrls.length,
+          });
+        } catch (error) {
+          logger.warn(`${logPrefix} Failed to generate file URLs, continuing without them`, { error });
+        }
+      }
+
       const rawConfig = this.getRawConfig(serverName) as t.MCPOptions;
       const currentOptions = processMCPEnv({
         user,
         options: rawConfig,
         customUserVars: customUserVars,
-        body: requestBody,
+        body: enhancedRequestBody,
       });
       if ('headers' in currentOptions) {
         connection.setRequestHeaders(currentOptions.headers || {});
