@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { validateFileToken } from './fileUrls';
@@ -13,7 +13,7 @@ const router = express.Router();
  * This endpoint serves files with temporary token-based authentication.
  * Supports both S3 (via presigned URLs) and local filesystem access.
  */
-router.get('/download/:fileId', async (req: Request, res: Response) => {
+router.get('/download/:fileId', async (req, res) => {
   const { fileId } = req.params;
   const { token } = req.query;
 

@@ -10,6 +10,13 @@ export type RequestBody = {
   messageId?: string;
   conversationId?: string;
   parentMessageId?: string;
+  files?: Array<{
+    file_id?: string;
+    filename?: string;
+    name?: string;
+    [key: string]: any;
+  }>;
+  fileUrls?: string[];
 };
 
 export type ServerRequest = Request & {

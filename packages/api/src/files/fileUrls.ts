@@ -1,5 +1,4 @@
 import crypto from 'crypto';
-import { getS3Client } from './client';
 import { logger } from '@librechat/data-schemas';
 
 // conf for temporary file URLs
@@ -64,7 +63,18 @@ async function generateS3PresignedUrl(
   ttlSeconds: number
 ): Promise<string> {
   try {
-    const s3 = getS3Client();
+    // Dynamic import to avoid bundling issues
+    const { S3Client, GetObjectCommand } = await import('@aws-sdk/client-s3');
+    const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
+
+    const s3 = new S3Client({
+      region: process.env.AWS_REGION || 'ap-south-1',
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+      },
+    });
+
     const bucketName = process.env.AWS_BUCKET_NAME;
 
     if (!bucketName) {
@@ -72,12 +82,7 @@ async function generateS3PresignedUrl(
     }
 
     // S3 key format: images/{userId}/{filename}
-    // We need to extract the key from fileId (assuming fileId is the full path or we have a mapping)
     const key = `images/${userId}/${fileId}`;
-
-    // Import AWS SDK v3 GetObjectCommand
-    const { GetObjectCommand } = await import('@aws-sdk/client-s3');
-    const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
 
     const command = new GetObjectCommand({
       Bucket: bucketName,
