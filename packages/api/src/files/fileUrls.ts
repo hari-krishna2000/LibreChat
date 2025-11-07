@@ -34,6 +34,12 @@ export async function generateFileUrl(
   const expires = new Date(Date.now() + ttlSeconds * 1000);
 
   try {
+    // If fileId is already a full URL, just return it
+    if (fileId.startsWith('http://') || fileId.startsWith('https://')) {
+      logger.info('[generateFileUrl] FileId is already a URL, returning as-is', { fileId: fileId.substring(0, 100) });
+      return { fileId, url: fileId, expires, storage };
+    }
+
     if (storage === 's3') {
       // Generate S3 presigned URL
       const url = await generateS3PresignedUrl(fileId, userId, ttlSeconds);

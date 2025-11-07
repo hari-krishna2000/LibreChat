@@ -231,6 +231,9 @@ Please follow these instructions when using tools from the respective MCP server
       // DEBUG: Log requestBody to see what fields are available
       logger.info(`${logPrefix} RequestBody keys: ${requestBody ? Object.keys(requestBody).join(', ') : 'undefined'}`);
       logger.info(`${logPrefix} RequestBody:`, { requestBody });
+      if (requestBody?.files && requestBody.files.length > 0) {
+        logger.info(`${logPrefix} Files in requestBody:`, requestBody.files);
+      }
 
       if (requestBody?.files && Array.isArray(requestBody.files) && requestBody.files.length > 0 && userId) {
         try {
@@ -238,9 +241,15 @@ Please follow these instructions when using tools from the respective MCP server
           const storage = fileStrategy === 's3' ? 's3' : 'local';
 
           const fileUrlsMetadata = await generateFileUrls(
-            requestBody.files.map((f: any) => ({ fileId: f.file_id || f.filename || f.name })),
+            requestBody.files.map((f: any) => ({
+              fileId: f.filepath || f.file_id || f.filename || f.name
+            })),
             storage as 'local' | 's3',
             userId
+          );
+
+          logger.info(`${logPrefix} Mapped file IDs for URL generation:`,
+            requestBody.files.map((f: any) => f.filepath || f.file_id || f.filename || f.name)
           );
 
           const fileUrls = fileUrlsMetadata.map(metadata => metadata.url);
