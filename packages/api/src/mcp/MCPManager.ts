@@ -227,6 +227,11 @@ Please follow these instructions when using tools from the respective MCP server
 
       // Generate temporary file URLs if files are attached
       let enhancedRequestBody = requestBody;
+
+      // DEBUG: Log requestBody to see what fields are available
+      logger.info(`${logPrefix} RequestBody keys: ${requestBody ? Object.keys(requestBody).join(', ') : 'undefined'}`);
+      logger.info(`${logPrefix} RequestBody:`, { requestBody });
+
       if (requestBody?.files && Array.isArray(requestBody.files) && requestBody.files.length > 0 && userId) {
         try {
           const fileStrategy = process.env.FILE_STRATEGY || 'local';
@@ -253,6 +258,8 @@ Please follow these instructions when using tools from the respective MCP server
         } catch (error) {
           logger.warn(`${logPrefix} Failed to generate file URLs, continuing without them`, { error });
         }
+      } else {
+        logger.warn(`${logPrefix} No files found in requestBody for file URL generation`);
       }
 
       const rawConfig = this.getRawConfig(serverName) as t.MCPOptions;

@@ -788,6 +788,7 @@ class AgentClient extends BaseClient {
             messageId: this.responseMessageId,
             conversationId: this.conversationId,
             parentMessageId: this.parentMessageId,
+            files: this.message_file_map?.[this.responseMessageId] || this.options.attachments || [],
           },
           user: this.options.req.user,
         },
