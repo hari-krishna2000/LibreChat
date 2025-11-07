@@ -34,9 +34,26 @@ export async function generateFileUrl(
   const expires = new Date(Date.now() + ttlSeconds * 1000);
 
   try {
-    // If fileId is already a full URL, just return it
+    // If fileId is already a full S3 URL, parse it to get the object key and regenerate with longer TTL
+    if (fileId.startsWith('https://') && fileId.includes('.s3.') && fileId.includes('.amazonaws.com')) {
+      logger.info('[generateFileUrl] FileId is an S3 URL, extracting key and regenerating with longer TTL');
+
+      // Extract S3 key from URL: https://bucket.s3.region.amazonaws.com/key?params
+      // or https://bucket.s3.amazonaws.com/key?params
+      const urlObj = new URL(fileId);
+      const pathname = urlObj.pathname; // e.g., /images/userId/filename.png
+      const objectKey = pathname.startsWith('/') ? pathname.substring(1) : pathname;
+
+      logger.info('[generateFileUrl] Extracted S3 key', { objectKey });
+
+      // Generate new presigned URL with our TTL (15 minutes)
+      const url = await generateS3PresignedUrl(objectKey, userId, ttlSeconds);
+      return { fileId, url, expires, storage };
+    }
+
+    // If fileId is some other URL format, return as-is
     if (fileId.startsWith('http://') || fileId.startsWith('https://')) {
-      logger.info('[generateFileUrl] FileId is already a URL, returning as-is', { fileId: fileId.substring(0, 100) });
+      logger.info('[generateFileUrl] FileId is a non-S3 URL, returning as-is');
       return { fileId, url: fileId, expires, storage };
     }
 
@@ -64,7 +81,7 @@ export async function generateFileUrl(
  * Generates an S3 presigned URL for temporary file access
  */
 async function generateS3PresignedUrl(
-  fileId: string,
+  objectKeyOrFileId: string,
   userId: string,
   ttlSeconds: number
 ): Promise<string> {
@@ -87,8 +104,11 @@ async function generateS3PresignedUrl(
       throw new Error('AWS_BUCKET_NAME not configured');
     }
 
-    // S3 key format: images/{userId}/{filename}
-    const key = `images/${userId}/${fileId}`;
+    // If objectKeyOrFileId already contains path (images/userId/file), use as-is
+    // Otherwise construct path: images/{userId}/{fileId}
+    const key = objectKeyOrFileId.includes('/')
+      ? objectKeyOrFileId
+      : `images/${userId}/${objectKeyOrFileId}`;
 
     const command = new GetObjectCommand({
       Bucket: bucketName,
@@ -97,10 +117,10 @@ async function generateS3PresignedUrl(
 
     const url = await getSignedUrl(s3, command, { expiresIn: ttlSeconds });
 
-    logger.info('[generateS3PresignedUrl] Generated presigned URL', { fileId, userId, ttl: ttlSeconds });
+    logger.info('[generateS3PresignedUrl] Generated presigned URL', { key, ttl: ttlSeconds });
     return url;
   } catch (error) {
-    logger.error('[generateS3PresignedUrl] Error generating S3 URL', { fileId, error });
+    logger.error('[generateS3PresignedUrl] Error generating S3 URL', { objectKeyOrFileId, error });
     throw new Error(`Failed to generate S3 presigned URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
